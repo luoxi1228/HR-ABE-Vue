@@ -87,10 +87,10 @@ const handleCommand = (command) => {
       <div class="user-section">
         <div class="user-info">
           <div class="user-id">
-            用户ID: <strong>{{ UserInfoStore.info.userId }}</strong>
+            ID: <strong>{{ UserInfoStore.info.userId }}</strong>
           </div>
           <div class="user-name">
-            用户名称: <strong>{{ UserInfoStore.info.userName }}</strong>
+            用户名: <strong>{{ UserInfoStore.info.userName }}</strong>
           </div>
         </div>
 

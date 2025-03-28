@@ -57,7 +57,8 @@ const handleGetFile = async (fileName) => {
     messages.value.push({
       step: 'error',
       success: false,
-      message: `下载失败: ${error.message}`,
+      message:' 下载失败!!!',
+      // message: `下载失败: ${error.message}`,
       timestamp: new Date().toLocaleTimeString()
     });
   } finally {
@@ -80,7 +81,7 @@ onUnmounted(() => {
     <h1 class="page-title">📂文件分享库</h1>
 
     <!-- 搜索框 -->
-    <el-input v-model="searchQuery" placeholder="🔍 搜索文件名、文件类型" class="search-input" clearable>
+    <el-input v-model="searchQuery" placeholder="🔍 搜索用户ID、文件名、文件类型" class="search-input" clearable>
       <template #prefix>
         <el-icon><search /></el-icon>
       </template>

@@ -95,6 +95,26 @@ const rules = {
     ]
 }
 
+const selectAll = (category) => {
+    if (category === 'profession') {
+        registerData.value.profession = 
+            registerData.value.profession.length === professionOptions.value.length 
+            ? [] 
+            : professionOptions.value.map(item => item.value);
+    } else if (category === 'hobby') {
+        registerData.value.hobby = 
+            registerData.value.hobby.length === hobbyOptions.value.length 
+            ? [] 
+            : hobbyOptions.value.map(item => item.value);
+    } else if (category === 'skill') {
+        registerData.value.skill = 
+            registerData.value.skill.length === skillOptions.value.length 
+            ? [] 
+            : skillOptions.value.map(item => item.value);
+    }
+}
+
+
 // 跳转到管理员登录页面
 const goToAdminLogin = () => {
     isAdminLogin.value = true
@@ -192,6 +212,7 @@ const clearRegisterData = () => {
         password: ''
     }
 }
+
 </script>
 
 
@@ -243,6 +264,9 @@ const clearRegisterData = () => {
                 <!-- 选择职业 -->
                 <el-form-item prop="profession">
                     <span>选择职业：</span>
+                    <el-button type="text" @click="selectAll('profession')">
+                        {{ registerData.profession.length === professionOptions.length ? '取消全选' : '全选' }}
+                    </el-button>
                     <el-checkbox-group v-model="registerData.profession">
                         <el-checkbox v-for="item in professionOptions" :key="item.value" :label="item.value">
                             {{ item.label }}
@@ -253,6 +277,9 @@ const clearRegisterData = () => {
                 <!-- 选择爱好 -->
                 <el-form-item prop="hobby">
                     <span>选择爱好：</span>
+                    <el-button type="text" @click="selectAll('hobby')">
+                        {{ registerData.hobby.length === hobbyOptions.length ? '取消全选' : '全选' }}
+                    </el-button>
                     <el-checkbox-group v-model="registerData.hobby">
                         <el-checkbox v-for="item in hobbyOptions" :key="item.value" :label="item.value">
                             {{ item.label }}
@@ -263,12 +290,16 @@ const clearRegisterData = () => {
                 <!-- 选择技能 -->
                 <el-form-item prop="skill">
                     <span>选择技能：</span>
+                    <el-button type="text" @click="selectAll('skill')">
+                        {{ registerData.skill.length === skillOptions.length ? '取消全选' : '全选' }}
+                    </el-button>
                     <el-checkbox-group v-model="registerData.skill">
                         <el-checkbox v-for="item in skillOptions" :key="item.value" :label="item.value">
                             {{ item.label }}
                         </el-checkbox>
                     </el-checkbox-group>
                 </el-form-item>
+
 
                 <el-form-item>
                     <el-button class="button" type="primary" auto-insert-space @click="register">
