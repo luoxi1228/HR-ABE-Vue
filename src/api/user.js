@@ -39,9 +39,28 @@ export const userInfoUpdateService = (userInfoData)=>{
    return request.put('/user/update',userInfoData)
 }
 
-// //修改头像
-// export const userAvatarUpdateService = (avatarUrl)=>{
-//     const params = new URLSearchParams();
-//     params.append('avatarUrl',avatarUrl)
-//     return request.patch('/user/updateAvatar',params)
-//}
+//管理员初始化
+export const setupService = () => {
+    return request.get('/admin/setup');
+};
+
+//获取用户列表
+export const ulListService = () => {
+    return request.get('/admin/ulList');
+}
+
+//撤销用户
+export const revokeService = (userId) => {
+    return request.post('/admin/revoke', null, {
+        params: { userId }
+    });
+}
+
+//修改密码
+export const resetPasswordService = (passwordData) => {
+    return request.patch('/user/updatePwd', passwordData, {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+};
