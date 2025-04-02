@@ -4,11 +4,6 @@ import { useTokenStore } from '@/stores/token.js'
 
 //文件列表查询
 export const getFileService = async () => {
-    //const tokenStore = useTokenStore()
-
-    // return request.get('/user/userMessage', {
-    //     headers: { 'Authorization': tokenStore.token }
-    // })
 
     return request.get('user/userMessage')
 }
@@ -21,16 +16,16 @@ export const deleteFileService = async (fileName) => {
 };
 
 //文件上传
-export const uploadFileService = async (file, password, policy) => {
+export const uploadFileService = async (file, policy) => {
     const formData = new FormData();
-    formData.append("file", file); // 追加文件
-    formData.append("password", password); // 追加密码
-    formData.append("policy", policy); // 追加策略
+    formData.append("file", file);
+    formData.append("policy", policy);
 
     return request.post('/user/uploadFile', formData, {
         headers: {
-            'Content-Type': 'multipart/form-data' // 重要！指定为文件上传类型
-        }
+            'Content-Type': 'multipart/form-data'
+        },
+        timeout: 30000 // 增加超时时间
     });
 };
 
