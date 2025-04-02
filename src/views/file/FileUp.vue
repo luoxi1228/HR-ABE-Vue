@@ -2,33 +2,17 @@
 import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { uploadFileService, deleteFileService, getFileService } from '@/api/file.js';
+import { ulUserService } from '@/api/user.js';
+import {
+  attributeLabels,
+  professionOptions,
+  hobbyOptions ,
+  skillOptions 
+} from '@/constants/attributeOptions.js';
 
 // 文件列表
 const fileList = ref([]);
 const searchQuery = ref('');
-
-// 分类属性数据
-const professionOptions = ref([
-  { label: "前端(A)", value: "A" },
-  { label: "后端(B)", value: "B" },
-  { label: "测试(C)", value: "C" },
-  { label: "运维(D)", value: "D" },
-  { label: "产品(E)", value: "E" }
-]);
-
-const hobbyOptions = ref([
-  { label: "唱歌(F)", value: "F" },
-  { label: "跳舞(G)", value: "G" },
-  { label: "写作(H)", value: "H" },
-  { label: "跑步(I)", value: "I" }
-]);
-
-const skillOptions = ref([
-  { label: "C++(J)", value: "J" },
-  { label: "Python(K)", value: "K" },
-  { label: "Java(L)", value: "L" },
-  { label: "Go(M)", value: "M" }
-]);
 
 // 搜索框过滤文件列表
 const filteredFileList = computed(() => {
@@ -50,6 +34,29 @@ const getFileList = async () => {
 };
 getFileList();
 
+//查看用户是否在用户列表
+const checkUserPermission = async () => {
+    const result = await ulUserService();
+    
+    // 更健壮的结果检查
+    if (!result) {
+      ElMessage.error('无法获取用户权限信息');
+      return false;
+    }
+    
+    // 根据您的业务逻辑调整这里的判断条件
+    if (result.code === 0) {  // 用户存在
+      ElMessage.success('用户权限验证成功');
+      return true;
+    }else{
+      ElMessage.error('用户失去权限，请重新注册！');
+      return false; // 用户不存在或权限不足   
+    }
+};
+
+
+
+
 // 删除文件
 const deleteFile = async (fileName) => {
   const result = await deleteFileService(fileName);
@@ -64,19 +71,23 @@ const deleteFile = async (fileName) => {
 const handleDelete = async (index) => {
   const file = filteredFileList.value[index];
   if (!file) return;
+
   try {
-    await deleteFile(file.fileName);
+    const hasPermission = await checkUserPermission();
+    if (!hasPermission) return;  // 无权限直接退出
+
+    await deleteFile(file.fileName);  // 有权限才执行删除
   } catch (error) {
     ElMessage.error('删除失败');
   }
 };
+
 
 // 弹窗控制
 const dialogVisible = ref(false);
 
 // 上传相关
 const selectedFile = ref(null);
-const password = ref('');
 const policy = ref('');
 const passwordVisible = ref(false);
 
@@ -139,10 +150,38 @@ watch([selectedProfession, selectedHobby, selectedSkills], () => {
   finalThreshold.value = Math.min(Math.max(finalThreshold.value, 0), 3);
 }, { immediate: true });
 
+
+const handleUpload = async () => {
+  if (!selectedFile.value) {
+    return ElMessage.warning('请选择要上传的文件');
+  }
+  if (!policy.value) {
+    return ElMessage.warning('请输入访问策略');
+  }
+
+  try {
+    const result = await uploadFileService(selectedFile.value, policy.value);
+    
+    // 根据业务逻辑处理响应
+    if (result.code === 0) {
+      ElMessage.success('上传成功');
+      dialogVisible.value = false;
+      await getFileList();
+      resetUploadDialog();
+    } else if (result.code === 1) {
+      ElMessage.warning(result.msg || '操作未完成');
+    } else {
+      ElMessage.error(result.msg || '上传失败');
+    }
+  } catch (error) {
+    // 错误消息已在拦截器处理
+    console.error('上传过程错误:', error);
+  }
+};
+
 // 重置上传弹窗
 const resetUploadDialog = () => {
   selectedFile.value = null;
-  password.value = '';
   policy.value = '';
   selectedProfession.value = [];
   selectedHobby.value = [];
@@ -153,27 +192,6 @@ const resetUploadDialog = () => {
   finalThreshold.value = 0;
 };
 
-// 上传文件
-const handleUpload = async () => {
-  if (!selectedFile.value) return ElMessage.warning('请选择要上传的文件');
-  if (!password.value) return ElMessage.warning('请输入加密密码');
-  if (!policy.value) return ElMessage.warning('请输入访问策略');
-
-  try {
-    const result = await uploadFileService(selectedFile.value, password.value, policy.value);
-    if (result.code === 0) {
-      ElMessage.success('文件上传成功');
-      dialogVisible.value = false;
-      await getFileList();
-      resetUploadDialog();
-    } else {
-      ElMessage.error(result.msg || '上传失败');
-    }
-  } catch (error) {
-    console.error('上传错误:', error);
-    ElMessage.error('上传失败');
-  }
-};
 </script>
 
 <template>
@@ -218,14 +236,14 @@ const handleUpload = async () => {
         <el-button type="success">📁 选择文件</el-button>
       </el-upload>
 
-      <el-input v-model="password" :type="passwordVisible ? 'text' : 'password'" placeholder="🔑 输入加密密码" class="input-box">
+      <!-- <el-input v-model="password" :type="passwordVisible ? 'text' : 'password'" placeholder="🔑 输入加密密码" class="input-box">
         <template #suffix>
           <el-icon @click="togglePasswordVisibility" class="eye-icon">
             <span v-if="passwordVisible">👁</span>
             <span v-else>👁‍🗨</span>
           </el-icon>
         </template>
-      </el-input>
+      </el-input> -->
 
       <div class="select-group">
         <el-select v-model="selectedProfession" multiple placeholder="选择职业类别">

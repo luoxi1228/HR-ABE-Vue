@@ -1,159 +1,145 @@
 <script setup>
-import { ref } from 'vue';
-import useUserInfoStore from '@/stores/userInfo.js';
-import { userInfoUpdateService, resetPasswordService } from '@/api/user.js';
-import { ElMessage } from 'element-plus';
-import { useTokenStore } from '@/stores/token.js';
+import { ref } from 'vue'
+import useUserInfoStore from '@/stores/userInfo.js'
+import { userNameUpdateService, resetPasswordService } from '@/api/user.js'
+import { ElMessage } from 'element-plus'
+import { useTokenStore } from '@/stores/token.js'
+import { View, Hide } from '@element-plus/icons-vue'
 
-const userInfoStore = useUserInfoStore();
-const tokenStore = useTokenStore();
-const userFormRef = ref(null);
-const originalUserInfo = ref({ ...userInfoStore.info }); // Store original data
-const userInfo = ref({
-  ...userInfoStore.info,
-  profession: userInfoStore.info.profession || [],
-  hobby: userInfoStore.info.hobby || [],
-  skill: userInfoStore.info.skill || []
-});
+const userInfoStore = useUserInfoStore()
+const tokenStore = useTokenStore()
+const userFormRef = ref(null)
+const userInfo = ref({ ...userInfoStore.info })
 
-// Checkboxes for enabling each module
-const enableInfoEdit = ref(false);
-const enablePasswordReset = ref(false);
+// Password visibility toggles
+const showOldPassword = ref(false)
+const showNewPassword = ref(false)
+const showConfirmPassword = ref(false)
+
+// Only keep password reset toggle
+const enablePasswordReset = ref(false)
+
+// Loading state
+const loading = ref(false)
 
 // Password reset fields
 const passwordInfo = ref({
   old_pwd: '',
   new_pwd: '',
   re_pwd: ''
-});
-
-const attributeLabels = {
-  A: "前端(A)", B: "后端(B)", C: "测试(C)", D: "运维(D)", E: "产品(E)",
-  F: "唱歌(F)", G: "跳舞(G)", H: "写作(H)", I: "跑步(I)",
-  J: "C++(J)", K: "Python(K)", L: "Java(L)", M: "Go(M)"
-};
-
-const professionOptions = ref([
-  { label: "前端(A)", value: "A" },
-  { label: "后端(B)", value: "B" },
-  { label: "测试(C)", value: "C" },
-  { label: "运维(D)", value: "D" },
-  { label: "产品(E)", value: "E" }
-]);
-
-const hobbyOptions = ref([
-  { label: "唱歌(F)", value: "F" },
-  { label: "跳舞(G)", value: "G" },
-  { label: "写作(H)", value: "H" },
-  { label: "跑步(I)", value: "I" }
-]);
-
-const skillOptions = ref([
-  { label: "C++(J)", value: "J" },
-  { label: "Python(K)", value: "K" },
-  { label: "Java(L)", value: "L" },
-  { label: "Go(M)", value: "M" }
-]);
-
-// Format attributes for display
-const formatAttributes = (attributes) => {
-  if (!attributes) return '';
-  return attributes.replace(/[()]/g, "").split(",").map(value => attributeLabels[value] || value).join(", ");
-};
+})
 
 const rules = {
   userName: [
-    { required: true, message: '请输入昵称', trigger: 'blur', validator: (rule, value) => enableInfoEdit.value ? !!value : true },
-    { min: 2, max: 16, message: '昵称长度为2~16位', trigger: 'blur', validator: (rule, value) => enableInfoEdit.value ? value.length >= 2 && value.length <= 16 : true }
-  ],
-  profession: [
-    { required: true, message: '请选择至少一个职业', trigger: 'change', validator: (rule, value) => enableInfoEdit.value ? value.length > 0 : true }
-  ],
-  hobby: [
-    { required: true, message: '请选择至少一个爱好', trigger: 'change', validator: (rule, value) => enableInfoEdit.value ? value.length > 0 : true }
-  ],
-  skill: [
-    { required: true, message: '请选择至少一个技能', trigger: 'change', validator: (rule, value) => enableInfoEdit.value ? value.length > 0 : true }
+    { required: true, message: '请输入昵称', trigger: 'blur' },
+    { min: 2, max: 16, message: '昵称长度为2~16位', trigger: 'blur' }
   ],
   old_pwd: [
-    { required: true, message: '请输入旧密码', trigger: 'blur', validator: (rule, value) => enablePasswordReset.value ? !!value : true }
+    { 
+      required: true, 
+      message: '请输入旧密码', 
+      trigger: 'blur', 
+      validator: (rule, value) => enablePasswordReset.value ? !!value : true 
+    }
   ],
   new_pwd: [
-    { required: true, message: '请输入新密码', trigger: 'blur', validator: (rule, value) => enablePasswordReset.value ? !!value : true },
-    { min: 6, message: '密码长度至少6位', trigger: 'blur', validator: (rule, value) => enablePasswordReset.value ? value.length >= 6 : true }
+    { 
+      required: true, 
+      message: '请输入新密码', 
+      trigger: 'blur', 
+      validator: (rule, value) => enablePasswordReset.value ? !!value : true 
+    },
+    { 
+      min: 6, 
+      message: '密码长度至少6位', 
+      trigger: 'blur', 
+      validator: (rule, value) => enablePasswordReset.value ? value.length >= 6 : true 
+    }
   ],
   re_pwd: [
-    { required: true, message: '请确认新密码', trigger: 'blur', validator: (rule, value) => enablePasswordReset.value ? !!value : true },
+    { 
+      required: true, 
+      message: '请确认新密码', 
+      trigger: 'blur', 
+      validator: (rule, value) => enablePasswordReset.value ? !!value : true 
+    },
     {
       validator: (rule, value, callback) => {
         if (enablePasswordReset.value && value !== passwordInfo.value.new_pwd) {
-          callback(new Error('两次输入的密码不一致'));
+          callback(new Error('两次输入的密码不一致'))
         } else {
-          callback();
+          callback()
         }
       },
       trigger: 'blur'
     }
   ]
-};
+}
 
 const updateUserInfo = async () => {
-  if (!enableInfoEdit.value && !enablePasswordReset.value) {
-    ElMessage.info('请勾选“编辑基本信息”或“重置密码”以启用修改');
-    return;
-  }
-
-  userFormRef.value.validate(async (valid) => {
-    if (!valid) return;
-
-    try {
-      // Update basic info if enabled
-      if (enableInfoEdit.value) {
-        const selectedAttributes = [
-          ...userInfo.value.profession,
-          ...userInfo.value.hobby,
-          ...userInfo.value.skill
-        ];
-
-        if (selectedAttributes.length === 0) {
-          ElMessage.error('请至少选择一个职业、一个爱好和一个技能！');
-          return;
-        }
-
-        let payload = {
-          ...userInfo.value,
-          attributes: `(${selectedAttributes.join(",")})`
-        };
-
-        let result = await userInfoUpdateService(payload);
-        if (result.code === 0) {
-          ElMessage.success(result.msg || '基本资料更新成功');
-          userInfoStore.setInfo(userInfo.value);
-          originalUserInfo.value = { ...userInfo.value }; // Update original after success
-        } else {
-          ElMessage.error(result.msg || '基本资料更新失败');
-          return;
-        }
-      }
-
-      // Update password if enabled
-      if (enablePasswordReset.value) {
-        let passwordResult = await resetPasswordService(passwordInfo.value);
-        if (passwordResult.code === 0) {
-          ElMessage.success(passwordResult.msg || '密码重置成功');
-          tokenStore.removeToken();
-          userInfoStore.removeInfo();
-          window.location.href = '/'; // Redirect to login page
-        } else {
-          ElMessage.error(passwordResult.msg || '密码重置失败');
-        }
-      }
-    } catch (error) {
-      ElMessage.error('操作失败，请检查网络或服务！');
+  if (loading.value) return
+  
+  try {
+    await userFormRef.value.validate()
+    loading.value = true
+    
+    const hasNicknameChange = userInfo.value.userName !== userInfoStore.info.userName
+    const hasPasswordChange = enablePasswordReset.value
+    
+    if (!hasNicknameChange && !hasPasswordChange) {
+      ElMessage.info('没有修改任何信息')
+      return
     }
-  });
-};
+
+    // 昵称修改 - 直接传递字符串而不是对象
+    if (hasNicknameChange) {
+      const result = await userNameUpdateService(userInfo.value.userName)
+        .catch(err => {
+          throw new Error(err.response?.data?.msg || '昵称更新失败')
+        })
+      
+      if (result.code === 0) {
+        ElMessage.success(result.msg || '昵称更新成功')
+        // 只更新store中的userName，保留其他信息
+        userInfoStore.setInfo({
+          ...userInfoStore.info,
+          userName: userInfo.value.userName
+        })
+      } else {
+        throw new Error(result.msg || '昵称更新失败')
+      }
+    }
+
+    // 如果有密码修改
+    if (hasPasswordChange) {
+      const passwordResult = await resetPasswordService(passwordInfo.value)
+        .catch(err => {
+          throw new Error(err.response?.data?.msg || '密码重置失败')
+        })
+      
+      if (passwordResult.code === 0) {
+        ElMessage.success(passwordResult.msg || '密码重置成功')
+        tokenStore.removeToken()
+        userInfoStore.removeInfo()
+        window.location.href = '/'
+      } else {
+        throw new Error(passwordResult.msg || '密码重置失败')
+      }
+    }
+
+  } catch (error) {
+    ElMessage.error(error.message)
+    console.error('API Error:', error)
+    
+    // 恢复原来的昵称显示
+    userInfo.value.userName = userInfoStore.info.userName
+  } finally {
+    loading.value = false
+  }
+}
+
 </script>
+
 
 <template>
   <el-card class="page-container shadow">
@@ -165,63 +151,95 @@ const updateUserInfo = async () => {
 
     <el-divider></el-divider>
 
-    <el-form ref="userFormRef" :model="{ ...userInfo, ...passwordInfo }" :rules="rules" label-width="120px" size="large">
+    <el-form 
+      ref="userFormRef" 
+      :model="{ ...userInfo, ...passwordInfo }" 
+      :rules="rules" 
+      label-width="120px" 
+      size="large"
+    >
       <el-form-item label="用户ID">
         <el-input v-model="userInfo.userId" disabled class="readonly-input"></el-input>
       </el-form-item>
-      <el-form-item label="用户昵称">
-          <el-input :value="originalUserInfo.userName" disabled class="readonly-input"></el-input>
+      <el-form-item label="用户昵称" prop="userName">
+        <el-input 
+          v-model="userInfo.userName" 
+          placeholder="请输入您的昵称"
+          :disabled="loading"
+        ></el-input>
       </el-form-item>
-      <el-form-item label="属性">
-          <el-input :value="formatAttributes(originalUserInfo.attributes)" disabled class="readonly-input"></el-input>
-      </el-form-item>
-
-      <!-- Basic Info Module -->
-      <div class="info-section">
-        <el-checkbox v-model="enableInfoEdit" label="修改信息" />
-        <div v-if="enableInfoEdit" class="edit-fields">
-          <h3>修改后</h3>
-          <el-form-item label="用户昵称" prop="userName">
-            <el-input v-model="userInfo.userName" placeholder="请输入您的昵称"></el-input>
-          </el-form-item>
-          <el-form-item label="职业" prop="profession">
-            <el-select v-model="userInfo.profession" multiple placeholder="选择职业类别" class="select-input">
-              <el-option v-for="item in professionOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="爱好" prop="hobby">
-            <el-select v-model="userInfo.hobby" multiple placeholder="选择爱好" class="select-input">
-              <el-option v-for="item in hobbyOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="技能" prop="skill">
-            <el-select v-model="userInfo.skill" multiple placeholder="选择技能" class="select-input">
-              <el-option v-for="item in skillOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-        </div>
-      </div>
 
       <!-- Password Reset Module -->
       <div class="password-section">
-        <el-checkbox v-model="enablePasswordReset" label="重置密码" />
+        <el-checkbox 
+          v-model="enablePasswordReset" 
+          label="重置密码"
+          :disabled="loading"
+        />
         <div v-if="enablePasswordReset" class="edit-fields">
-          <h3>修改后</h3>
           <el-form-item label="旧密码" prop="old_pwd">
-            <el-input v-model="passwordInfo.old_pwd" type="password" placeholder="请输入旧密码"></el-input>
+            <el-input 
+              v-model="passwordInfo.old_pwd" 
+              :type="showOldPassword ? 'text' : 'password'" 
+              placeholder="请输入旧密码"
+              :disabled="loading"
+            >
+              <template #suffix>
+                <el-icon 
+                  class="password-icon" 
+                  @click="showOldPassword = !showOldPassword"
+                >
+                  <component :is="showOldPassword ? View : Hide" />
+                </el-icon>
+              </template>
+            </el-input>
           </el-form-item>
           <el-form-item label="新密码" prop="new_pwd">
-            <el-input v-model="passwordInfo.new_pwd" type="password" placeholder="请输入新密码"></el-input>
+            <el-input 
+              v-model="passwordInfo.new_pwd" 
+              :type="showNewPassword ? 'text' : 'password'" 
+              placeholder="请输入新密码"
+              :disabled="loading"
+            >
+              <template #suffix>
+                <el-icon 
+                  class="password-icon" 
+                  @click="showNewPassword = !showNewPassword"
+                >
+                  <component :is="showNewPassword ? View : Hide" />
+                </el-icon>
+              </template>
+            </el-input>
           </el-form-item>
           <el-form-item label="确认密码" prop="re_pwd">
-            <el-input v-model="passwordInfo.re_pwd" type="password" placeholder="请确认新密码"></el-input>
+            <el-input 
+              v-model="passwordInfo.re_pwd" 
+              :type="showConfirmPassword ? 'text' : 'password'" 
+              placeholder="请确认新密码"
+              :disabled="loading"
+            >
+              <template #suffix>
+                <el-icon 
+                  class="password-icon" 
+                  @click="showConfirmPassword = !showConfirmPassword"
+                >
+                  <component :is="showConfirmPassword ? View : Hide" />
+                </el-icon>
+              </template>
+            </el-input>
           </el-form-item>
         </div>
       </div>
 
       <!-- Centered Submit Button -->
       <el-form-item class="submit-button">
-        <el-button type="primary" @click="updateUserInfo">提交修改</el-button>
+        <el-button 
+          type="primary" 
+          @click="updateUserInfo"
+          :loading="loading"
+        >
+          {{ loading ? '提交中...' : '提交修改' }}
+        </el-button>
       </el-form-item>
     </el-form>
   </el-card>
@@ -254,36 +272,12 @@ const updateUserInfo = async () => {
   cursor: not-allowed;
 }
 
-.select-input {
-  width: 100%;
-  padding: 8px;
-  margin: 5px 0;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-}
-
-.before-edit {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: #f0f0f0;
-  border-radius: 6px;
-}
-
-.info-section,
 .password-section {
   margin-top: 20px;
   padding: 15px;
   border: 1px solid #ddd;
   border-radius: 6px;
   background-color: #fafafa;
-}
-
-.before-edit h3,
-.edit-fields h3 {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 10px;
-  color: #666;
 }
 
 .edit-fields {
@@ -295,6 +289,15 @@ const updateUserInfo = async () => {
   justify-content: center;
   width: 100%;
   margin-top: 20px;
-  margin-left: 20%;
+}
+
+.password-icon {
+  cursor: pointer;
+  color: #c0c4cc;
+  transition: color 0.2s;
+}
+
+.password-icon:hover {
+  color: #909399;
 }
 </style>

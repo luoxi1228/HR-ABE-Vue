@@ -32,26 +32,46 @@ import router from '@/router';
 //添加响应拦截器
 instance.interceptors.response.use(
     result => {
-        // 如果是 blob 类型，直接返回响应数据
+        // 处理成功响应
         if (result.config.responseType === 'blob') {
             return result.data;
         }
-        // 否则按 JSON 处理
-        if (result.data.code === 0) {
+        
+        // 允许 code 为 0 或 1 的响应通过
+        if (result.data.code === 0 || result.data.code === 1|| result.data.code === 2) {
             return result.data;
         }
+        
+        // 其他 code 视为错误
         ElMessage.error(result.data.msg || '服务异常');
         return Promise.reject(result.data);
     },
     err => {
-        if(err.response.status===401){
-            ElMessage.error('请先登录')
-              router.push('/')
-        }else{
-            ElMessage.error('服务异常')
+        // 增强错误处理
+        if (!err.response) {
+            // 处理网络错误或请求被取消的情况
+            if (err.code === 'ECONNABORTED') {
+                ElMessage.error('请求超时，请检查网络连接');
+            } else {
+                ElMessage.error('网络连接异常，请检查服务器状态');
+            }
+            return Promise.reject(err);
         }
-        return Promise.reject(err);//异步的状态转化成失败的状态
+        
+        // 处理有响应的错误
+        switch (err.response.status) {
+            case 401:
+                ElMessage.error('请先登录');
+                router.push('/');
+                break;
+            case 500:
+                //ElMessage.error('服务器内部错误');
+                break;
+            default:
+                ElMessage.error(`服务异常: ${err.response.status}`);
+        }
+        return Promise.reject(err);
     }
-)
+);
 
 export default instance;

@@ -5,16 +5,20 @@ import {
   UserFilled,
   SwitchButton,
   CaretBottom,
+  Delete
 } from "@element-plus/icons-vue";
 import avatar from "@/assets/user.png";
-import { userInfoService } from "@/api/user.js";
+import { userInfoService, userLogoutService } from "@/api/user.js"; // 导入新增的API
 import { ElMessage, ElMessageBox } from "element-plus";
 import useUserInfoStore from "@/stores/userInfo.js";
 import { useTokenStore } from "@/stores/token.js";
+import { useRouter } from "vue-router";
 
 const tokenStore = useTokenStore();
 const UserInfoStore = useUserInfoStore();
+const router = useRouter();
 
+// 获取用户信息
 const getUserInfo = async () => {
   try {
     let result = await userInfoService();
@@ -23,12 +27,37 @@ const getUserInfo = async () => {
     ElMessage.error("获取用户信息失败，请检查后端服务！");
   }
 };
-
 getUserInfo();
 
-import { useRouter } from "vue-router";
-const router = useRouter();
+// 用户注销函数
+const handleUserDeactivate = async () => {
+  try {
+    await ElMessageBox.confirm("此操作将永久注销您的账户，所有数据将被删除，是否继续？", "警告", {
+      confirmButtonText: "确认注销",
+      cancelButtonText: "取消",
+      type: "error",
+      distinguishCancelAndClose: true,
+      confirmButtonClass: "el-button--danger"
+    });
+    
+    // 执行注销
+    const result = await userLogoutService();
+    if (result.code === 0) {
+      ElMessage.success("账户注销成功");
+      tokenStore.removeToken();
+      UserInfoStore.removeInfo();
+      router.push("/");
+    } else {
+      ElMessage.error(result.msg || "注销失败");
+    }
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error("注销过程中出错");
+    }
+  }
+};
 
+// 处理下拉菜单命令
 const handleCommand = (command) => {
   if (command === "logout") {
     ElMessageBox.confirm("您确认要退出吗?", "温馨提示", {
@@ -101,6 +130,9 @@ const handleCommand = (command) => {
           </span>
           <template #dropdown>
             <el-dropdown-menu>
+              <el-dropdown-item @click="handleUserDeactivate" :icon="Delete" style="color: #F56C6C;">
+                 注销账户
+              </el-dropdown-item>
               <el-dropdown-item command="logout" :icon="SwitchButton">
                 退出登录
               </el-dropdown-item>
@@ -213,5 +245,14 @@ const handleCommand = (command) => {
   font-size: 14px;
   color: #666;
   background-color: #f4f7f9; /* Match the blue-gray background */
+}
+
+.el-dropdown-menu {
+  .el-dropdown-menu__item:first-child {
+    &:hover {
+      background-color: #fff6f6;
+      color: #F56C6C;
+    }
+  }
 }
 </style>

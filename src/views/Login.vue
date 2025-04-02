@@ -3,12 +3,21 @@ import { ref } from 'vue'
 import { User, Lock, View, Hide } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import { useRouter } from 'vue-router'
+import { useTokenStore } from '@/stores/token.js'
+import { 
+  userRegisterService,
+  userLoginService,
+  adminLoginService,
+    userRegisterStatusService 
+} from '@/api/user.js'
 
 const isRegister = ref(false)
 const isAdminLogin = ref(false)
-
-const showPassword = ref(false) // 是否显示密码
-const showRePassword = ref(false) // 是否显示确认密码
+const showPassword = ref(false)
+const showRePassword = ref(false)
+const router = useRouter()
+const tokenStore = useTokenStore()
 
 const togglePasswordVisibility = (field) => {
     if (field === 'password') {
@@ -18,40 +27,15 @@ const togglePasswordVisibility = (field) => {
     }
 }
 
-// 分类属性数据
-const professionOptions = ref([
-  { label: "前端(A)", value: "A" },
-  { label: "后端(B)", value: "B" },
-  { label: "测试(C)", value: "C" },
-  { label: "运维(D)", value: "D" },
-  { label: "产品(E)", value: "E" }
-]);
-
-const hobbyOptions = ref([
-  { label: "唱歌(F)", value: "F" },
-  { label: "跳舞(G)", value: "G" },
-  { label: "写作(H)", value: "H" },
-  { label: "跑步(I)", value: "I" }
-]);
-
-const skillOptions = ref([
-  { label: "C++(J)", value: "J" },
-  { label: "Python(K)", value: "K" },
-  { label: "Java(L)", value: "L" },
-  { label: "Go(M)", value: "M" }
-]);
-
 // 用户注册数据
 const registerData = ref({
     userId: '',
     userName: '',
     password: '',
-    rePassword: '',
-    profession: [],
-    hobby: [],
-    skill: []
+    rePassword: ''
 })
-//管理员登录数据
+
+// 管理员登录数据
 const adminLoginData = ref({
     adminId: '',
     password: ''
@@ -84,36 +68,10 @@ const rules = {
     rePassword: [
         { validator: checkRePassword, trigger: 'blur' }
     ],
-    profession: [
-        { required: true, message: '请选择至少一个职业', trigger: 'change' }
-    ],
-    hobby: [
-        { required: true, message: '请选择至少一个爱好', trigger: 'change' }
-    ],
-    skill: [
-        { required: true, message: '请选择至少一个技能', trigger: 'change' }
+    adminId: [
+        { required: true, message: '请输入管理员账号', trigger: 'blur' }
     ]
 }
-
-const selectAll = (category) => {
-    if (category === 'profession') {
-        registerData.value.profession = 
-            registerData.value.profession.length === professionOptions.value.length 
-            ? [] 
-            : professionOptions.value.map(item => item.value);
-    } else if (category === 'hobby') {
-        registerData.value.hobby = 
-            registerData.value.hobby.length === hobbyOptions.value.length 
-            ? [] 
-            : hobbyOptions.value.map(item => item.value);
-    } else if (category === 'skill') {
-        registerData.value.skill = 
-            registerData.value.skill.length === skillOptions.value.length 
-            ? [] 
-            : skillOptions.value.map(item => item.value);
-    }
-}
-
 
 // 跳转到管理员登录页面
 const goToAdminLogin = () => {
@@ -129,70 +87,73 @@ const goToUserLogin = () => {
     clearRegisterData()
 }
 
-
 // 调用注册接口
-import { userRegisterService } from '@/api/user.js'
 const register = async () => {
-    const selectedAttributes = [
-        ...registerData.value.profession,
-        ...registerData.value.hobby,
-        ...registerData.value.skill
-    ]
-
-    if (selectedAttributes.length === 0) {
-        ElMessage.error('请至少选择一个职业、一个爱好和一个技能！')
-        return
-    }
-
-    let payload = {
-        ...registerData.value,
-        attributes: `(${selectedAttributes.join(",")})`
-    }
-
-    let result = await userRegisterService(payload)
+    let result = await userRegisterService({
+        userId: registerData.value.userId,
+        userName: registerData.value.userName,
+        password: registerData.value.password
+    });
+    
     if (result.code === 0) {
-        ElMessage.success(result.msg ? result.msg : '注册成功')
-        goToUserLogin()
+        // 创建一个持续显示的loading消息
+        const loadingMessage = ElMessage({
+            message: '注册申请已提交，等待管理员审批...',
+            type: 'info',
+            duration: 0, // 设置为0表示不会自动关闭
+            showClose: true // 显示关闭按钮
+        });
+        
+        // 轮询检查状态
+        const checkStatus = async () => {
+            try {
+                const statusResult = await userRegisterStatusService(registerData.value.userId);
+                
+                if (statusResult.code === 0) {
+                    loadingMessage.close(); // 关闭loading消息
+                    ElMessage.success('注册成功，已通过管理员审批');
+                    goToUserLogin();
+                } else if (statusResult.code === 1) {
+                    // 等待3秒后再次检查
+                    setTimeout(checkStatus, 3000);
+                } else {
+                    loadingMessage.close(); // 关闭loading消息
+                    ElMessage.error(statusResult.message || '注册审批出现问题');
+                }
+            } catch (error) {
+                loadingMessage.close(); // 关闭loading消息
+                ElMessage.error('检查注册状态时出错');
+            }
+        };
+        
+        // 开始轮询
+        checkStatus();
     } else {
-        ElMessage.error(result.msg ? result.msg : '注册失败')
+        ElMessage.error(result.message || '注册失败');
     }
 }
 
-//用户登录函数
-import{useTokenStore} from '@/stores/token.js'
-import { userLoginService } from '@/api/user.js'
-import { useRouter } from 'vue-router'
-const router = useRouter()
-const tokenStore = useTokenStore()
+// 用户登录函数
 const login = async () => {
     let result = await userLoginService(registerData.value)
     if (result.code === 0) {
-        // 登录成功
-        ElMessage.success(result.msg ? result.msg : '登录成功')
-        // 保存token
+        ElMessage.success(result.message ? result.message : '登录成功')
         tokenStore.setToken(result.data)
-        // 跳转到首页
         router.push('/userIndex')
     } else {
-        // 登录失败
-        ElMessage.error(result.msg ? result.msg : '登录失败')
+        ElMessage.error(result.message ? result.message : '登录失败')
     }
 }
 
-//管理员登录函数
-import {adminLoginService} from '@/api/user.js'
+// 管理员登录函数
 const adminLogin = async () => {
     let result = await adminLoginService(adminLoginData.value)
     if (result.code === 0) {
-        // 登录成功
-        ElMessage.success(result.msg ? result.msg : '登录成功')
-        // 保存token
+        ElMessage.success(result.message ? result.message : '登录成功')
         tokenStore.setToken(result.data)
-        // 跳转到首页
         router.push('/adminIndex')
     } else {
-        // 登录失败
-        ElMessage.error(result.msg ? result.msg : '登录失败')
+        ElMessage.error(result.message ? result.message : '登录失败')
     }
 }
 
@@ -202,25 +163,19 @@ const clearRegisterData = () => {
         userId: '',
         userName: '',
         password: '',
-        rePassword: '',
-        profession: [],
-        hobby: [],
-        skill: []
+        rePassword: ''
     }
     adminLoginData.value = {
         adminId: '',
         password: ''
     }
 }
-
 </script>
-
 
 <template>
     <el-row class="login-page">
         <el-col :span="12" class="bg"></el-col>
         <el-col :span="6" :offset="3" class="form">
-            <!-- 注册表单 -->
             <!-- 注册表单 -->
             <el-form ref="form" size="large" autocomplete="off" v-if="isRegister" :model="registerData" :rules="rules">
                 <el-form-item>
@@ -260,47 +215,6 @@ const clearRegisterData = () => {
                         </template>
                     </el-input>
                 </el-form-item>
-
-                <!-- 选择职业 -->
-                <el-form-item prop="profession">
-                    <span>选择职业：</span>
-                    <el-button type="text" @click="selectAll('profession')">
-                        {{ registerData.profession.length === professionOptions.length ? '取消全选' : '全选' }}
-                    </el-button>
-                    <el-checkbox-group v-model="registerData.profession">
-                        <el-checkbox v-for="item in professionOptions" :key="item.value" :label="item.value">
-                            {{ item.label }}
-                        </el-checkbox>
-                    </el-checkbox-group>
-                </el-form-item>
-
-                <!-- 选择爱好 -->
-                <el-form-item prop="hobby">
-                    <span>选择爱好：</span>
-                    <el-button type="text" @click="selectAll('hobby')">
-                        {{ registerData.hobby.length === hobbyOptions.length ? '取消全选' : '全选' }}
-                    </el-button>
-                    <el-checkbox-group v-model="registerData.hobby">
-                        <el-checkbox v-for="item in hobbyOptions" :key="item.value" :label="item.value">
-                            {{ item.label }}
-                        </el-checkbox>
-                    </el-checkbox-group>
-                </el-form-item>
-
-                <!-- 选择技能 -->
-                <el-form-item prop="skill">
-                    <span>选择技能：</span>
-                    <el-button type="text" @click="selectAll('skill')">
-                        {{ registerData.skill.length === skillOptions.length ? '取消全选' : '全选' }}
-                    </el-button>
-                    <el-checkbox-group v-model="registerData.skill">
-                        <el-checkbox v-for="item in skillOptions" :key="item.value" :label="item.value">
-                            {{ item.label }}
-                        </el-checkbox>
-                    </el-checkbox-group>
-                </el-form-item>
-
-
                 <el-form-item>
                     <el-button class="button" type="primary" auto-insert-space @click="register">
                         注册
@@ -322,7 +236,6 @@ const clearRegisterData = () => {
                     <el-input :prefix-icon="User" placeholder="请输入用户ID" v-model="registerData.userId"></el-input>
                 </el-form-item>
                 <el-form-item prop="password">
-                    <!-- <el-input name="password" :prefix-icon="Lock" type="password" placeholder="请输入密码" v-model="registerData.password"></el-input> -->
                     <el-input 
                         :prefix-icon="Lock" 
                         :type="showPassword ? 'text' : 'password'" 
@@ -363,7 +276,7 @@ const clearRegisterData = () => {
                 <el-form-item prop="adminId">
                     <el-input :prefix-icon="User" placeholder="请输入管理员账户" v-model="adminLoginData.adminId"></el-input>
                 </el-form-item>
-                <el-form-item prop="adminPassword">
+                <el-form-item prop="password">
                     <el-input name="password" :prefix-icon="Lock" type="password" placeholder="请输入密码" v-model="adminLoginData.password"></el-input>
                 </el-form-item>
                 <el-form-item class="flex">
@@ -420,7 +333,6 @@ const clearRegisterData = () => {
             margin-top: 10px;
         }
 
-        /* 让 "注册" 靠左，"管理员登录" 靠右 */
         .link-group :first-child {
             margin-right: auto;
         }
