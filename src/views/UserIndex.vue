@@ -89,7 +89,7 @@ const handleCommand = (command) => {
 <template>
   <el-container class="userIndex-container">
     <el-header class="el-header">
-      <div class="header-title">HR-ABE</div>
+      <div class="header-title">🔗HR-ABE 数据共享系统</div>
 
       <el-menu
         mode="horizontal"

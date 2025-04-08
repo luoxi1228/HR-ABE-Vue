@@ -219,7 +219,7 @@ onMounted(() => {
 <template>
   <el-container class="userIndex-container">
     <el-header class="header">
-      <h1 class="header-title">HR-ABE 管理系统</h1>
+      <h1 class="header-title">🔗HR-ABE 数据共享系统</h1>
       <el-dropdown placement="bottom-end" @command="handleCommand">
         <span class="el-dropdown__box">
           <el-avatar :src="avatar" />

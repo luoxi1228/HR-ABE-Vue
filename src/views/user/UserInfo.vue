@@ -1,10 +1,16 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import useUserInfoStore from '@/stores/userInfo.js'
 import { userNameUpdateService, resetPasswordService } from '@/api/user.js'
 import { ElMessage } from 'element-plus'
 import { useTokenStore } from '@/stores/token.js'
 import { View, Hide } from '@element-plus/icons-vue'
+import {
+  attributeLabels,
+  professionOptions,
+  hobbyOptions,
+  skillOptions
+} from '@/constants/attributeOptions.js'
 
 const userInfoStore = useUserInfoStore()
 const tokenStore = useTokenStore()
@@ -27,6 +33,18 @@ const passwordInfo = ref({
   old_pwd: '',
   new_pwd: '',
   re_pwd: ''
+})
+
+// 格式化属性显示
+const formattedAttributes = computed(() => {
+  if (!userInfo.value.attributes) return '无属性'
+  
+  return userInfo.value.attributes
+    .replace(/[()]/g, "") // 移除括号
+    .split(",") // 分割成数组
+    .map(value => attributeLabels[value] || value) // 转换为可读标签
+    .filter(Boolean) // 过滤空值
+    .join(", ") // 合并为字符串
 })
 
 const rules = {
@@ -169,6 +187,13 @@ const updateUserInfo = async () => {
         ></el-input>
       </el-form-item>
 
+      <el-form-item label="用户属性">
+        <el-tag type="info" class="attribute-tag">
+          {{ formattedAttributes }}
+        </el-tag>
+      </el-form-item>
+
+
       <!-- Password Reset Module -->
       <div class="password-section">
         <el-checkbox 
@@ -299,5 +324,15 @@ const updateUserInfo = async () => {
 
 .password-icon:hover {
   color: #909399;
+}
+
+.attribute-tag {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  white-space: normal;
+  word-break: break-word;
+  height: auto;
+  line-height: 1.5;
 }
 </style>
